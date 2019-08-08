@@ -1,131 +1,64 @@
-﻿using EarTrumpet.Services;
+﻿using EarTrumpet.Interop;
 using System;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Windows;
-using System.Windows.Media;
-using System.Windows.Media.Animation;
+using System.Windows.Interop;
 
 namespace EarTrumpet.Extensions
 {
-    internal static class WindowExtensions
+    public static class WindowExtensions
     {
-        private static bool hideAnimationInProgress = false;
-        public static void HideWithAnimation(this Window window)
+        public static void SetWindowPos(this Window window, double top, double left, double height, double width)
         {
-            if (hideAnimationInProgress) return;
+            User32.SetWindowPos(window.GetHandle(), IntPtr.Zero, (int)left, (int)top, (int)width, (int)height, User32.WindowPosFlags.SWP_NOZORDER | User32.WindowPosFlags.SWP_NOACTIVATE);
+        }
 
-            try
+        public static void RaiseWindow(this Window window)
+        {
+            window.Topmost = true;
+            window.Activate();
+            window.Topmost = false;
+        }
+
+        public static void Cloak(this Window window, bool hide = true)
+        {
+            int attributeValue = hide ? 1 : 0;
+            DwmApi.DwmSetWindowAttribute(window.GetHandle(), DwmApi.DWMA_CLOAK, ref attributeValue, Marshal.SizeOf(attributeValue));
+        }
+
+        public static void RemoveWindowStyle(this Window window, int styleToRemove)
+        {
+            var currentStyle = User32.GetWindowLong(window.GetHandle(), User32.GWL.GWL_STYLE);
+            if (currentStyle == 0)
             {
-                hideAnimationInProgress = true;
-            
-                var hideAnimation = new DoubleAnimation
-                {
-                    Duration = new Duration(TimeSpan.FromSeconds(0.2)),
-                    FillBehavior = FillBehavior.Stop,
-                    EasingFunction = new ExponentialEase { EasingMode = EasingMode.EaseIn }
-                };
-                var taskbarPosition = TaskbarService.GetWinTaskbarState().TaskbarPosition;
-                switch (taskbarPosition)
-                {
-                    case TaskbarPosition.Left:
-                    case TaskbarPosition.Right: 
-                        hideAnimation.From = window.Left; 
-                        break;
-                    default: 
-                        hideAnimation.From = window.Top; 
-                        break;
-                }
-                hideAnimation.To = (taskbarPosition == TaskbarPosition.Top || taskbarPosition == TaskbarPosition.Left) ? hideAnimation.From - 10 : hideAnimation.From + 10;
-                hideAnimation.Completed += (s, e) =>
-                {
-                    window.Visibility = Visibility.Hidden;
-                    hideAnimationInProgress = false;
-                };
-
-                switch (taskbarPosition)
-                {
-                    case TaskbarPosition.Left: 
-                    case TaskbarPosition.Right:
-                        window.ApplyAnimationClock(Window.LeftProperty, hideAnimation.CreateClock());  
-                        break;
-                    default:
-                        window.ApplyAnimationClock(Window.TopProperty, hideAnimation.CreateClock()); 
-                        break;
-                }
+                Trace.WriteLine($"WindowExtensions RemoveWindowStyle Failed: ({Marshal.GetLastWin32Error()})");
+                return;
             }
-            catch
+
+            User32.SetWindowLong(window.GetHandle(), User32.GWL.GWL_STYLE, (currentStyle & ~styleToRemove));
+        }
+
+        public static void ApplyExtendedWindowStyle(this Window window, int newExStyle)
+        {
+            var currentExStyle = User32.GetWindowLong(window.GetHandle(), User32.GWL.GWL_EXSTYLE);
+            if (currentExStyle == 0)
             {
-                hideAnimationInProgress = false;
+                Trace.WriteLine($"WindowExtensions ApplyExtendedWindowStyle Failed: ({Marshal.GetLastWin32Error()})");
+                return;
+            }
+
+            var oldExStyle = User32.SetWindowLong(window.GetHandle(), User32.GWL.GWL_EXSTYLE, currentExStyle | newExStyle);
+            if (oldExStyle != currentExStyle)
+            {
+                Trace.WriteLine($"WindowExtensions ApplyExtendedWindowStyle Unexpected: ({oldExStyle} vs. {currentExStyle})");
+                return;
             }
         }
 
-        private static bool showAnimationInProgress = false;
-        public static void ShowwithAnimation(this Window window)
+        public static IntPtr GetHandle(this Window window)
         {
-            if (showAnimationInProgress) return;
-
-            try
-            {
-                showAnimationInProgress = true;
-                window.Visibility = Visibility.Visible;
-                window.Topmost = false;
-                window.Activate();
-                var showAnimation = new DoubleAnimation
-                {
-                    Duration = new Duration(TimeSpan.FromSeconds(0.3)),
-                    FillBehavior = FillBehavior.Stop,
-                    EasingFunction = new ExponentialEase { EasingMode = EasingMode.EaseOut }
-                };
-                var taskbarPosition = TaskbarService.GetWinTaskbarState().TaskbarPosition;
-                switch (taskbarPosition)
-                {
-                    case TaskbarPosition.Left:
-                    case TaskbarPosition.Right:
-                        showAnimation.To = window.Left;
-                        break;
-                    default:
-                        showAnimation.To = window.Top;
-                        break;
-                }
-                showAnimation.From = (taskbarPosition == TaskbarPosition.Top || taskbarPosition == TaskbarPosition.Left) ? showAnimation.To - 25 : showAnimation.To + 25;            
-                showAnimation.Completed += (s, e) =>
-                {
-                    window.Topmost = true;
-                    showAnimationInProgress = false;
-                    window.Focus();                
-                };
-                switch (taskbarPosition)
-                {
-                    case TaskbarPosition.Left: 
-                    case TaskbarPosition.Right:
-                        window.ApplyAnimationClock(Window.LeftProperty, showAnimation.CreateClock());
-                        break;
-                    default:
-                        window.ApplyAnimationClock(Window.TopProperty, showAnimation.CreateClock());
-                        break;
-                }
-            }
-            catch
-            {
-                showAnimationInProgress = false;
-            }
-        }
-
-        public static Matrix CalculateDpiFactors(this Window window)
-        {
-            var mainWindowPresentationSource = PresentationSource.FromVisual(window);
-            return mainWindowPresentationSource == null ? new Matrix() { M11 = 1, M22 = 1} : mainWindowPresentationSource.CompositionTarget.TransformToDevice;
-        }
-
-        public static double DpiHeightFactor(this Window window)
-        {
-            var m = CalculateDpiFactors(window);
-            return m.M22;
-        }
-
-        public static double DpiWidthFactor(this Window window)
-        {
-            var m = CalculateDpiFactors(window);
-            return m.M11;
+            return new WindowInteropHelper(window).Handle;
         }
     }
 }

@@ -1,18 +1,11 @@
 ﻿using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
 
 namespace EarTrumpet.Extensions
 {
     public static class CollectionExtensions
     {
-        public static void AddRange<T>(this ICollection<T> destination, IEnumerable<T> source)
-        {
-            foreach (var item in source)
-            {
-                destination.Add(item);
-            }
-        }
-
         public static void AddSorted<T>(this ObservableCollection<T> collection, T item, IComparer<T> comparer)
         {
             var i = 0;
@@ -22,6 +15,22 @@ namespace EarTrumpet.Extensions
             }
 
             collection.Insert(i, item);
+        }
+
+        public static void AddRange<T>(this ObservableCollection<T> collection, IEnumerable<T> items)
+        {
+            foreach (var item in items)
+            {
+                collection.Add(item);
+            }
+        }
+
+        public static void InsertRange<T>(this ObservableCollection<T> collection, int startIndex, IEnumerable<T> items)
+        {
+            foreach (var item in items.Reverse())
+            {
+                collection.Insert(startIndex, item);
+            }
         }
     }
 }

@@ -137,7 +137,7 @@ publish/
 # NuGet Packages
 #*.nupkg
 # The packages folder can be ignored because of Package Restore
-#**/packages/*
+**/packages/*
 # except build/, which is used as an MSBuild target.
 #!**/packages/build/
 # Uncomment if necessary however generally it will be regenerated when needed
@@ -196,7 +196,15 @@ FakesAssemblies/
 *.opt
 
 # Visual Studio databases
-EarTrumpet.VC.db
-EarTrumpet.VC.VC.opendb
-EarTrumpet.vs15.VC.db
-EarTrumpet.vs15.VC.VC.opendb
+*.VC.db
+*.VC.VC.opendb
+*.vs15.VC.db
+*.vs15.VC.VC.opendb
+
+*.lastcodeanalysissucceeded
+*.CodeAnalysisLog.xml
+*.filters
+
+# Auto-generated files
+BundleArtifacts/
+_pkginfo.txt
